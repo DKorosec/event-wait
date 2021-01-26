@@ -1,0 +1,115 @@
+# EVENT-WAIT OBJECT
+----
+
+Documentation by example:
+
+```javascript
+async function wait_event_example1() {
+    // Straight-forward example.
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const assert = require('assert')
+    const { createWaitEventObject } = require('event-wait')
+
+    const flag = createWaitEventObject()
+
+    /*
+        * flag.wait() awaits until flag.set() is called.
+        * returns true if timeout parameter (in milliseconds) was not sent into flag.wait(ms) otherwise it yields false
+    */
+
+    // set flag in 3 seconds.
+    setTimeout(() => flag.set(), 3000)
+
+    log('waiting for flag to be set (in 3 seconds).')
+    assert(await flag.wait() === true)
+    log('flag was set!')
+
+    log('will immediately continue because flag was set.')
+    assert(await flag.wait() === true)
+
+    // clear the flag for reuse (can be set again)
+    flag.clear()
+    log('will wait 5 seconds for flag to be set (it wont be) - timeout will happen')
+    assert(await flag.wait(5000) === false)
+
+    log('will wait because flag was not set (timed out), but it will be set in 2 seconds now.')
+    setTimeout(() => flag.set(), 2000)
+    assert(await flag.wait() === true)
+    log('done.')
+}
+
+async function consumer_producer_example1() {
+    // Straight-forward example.
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const assert = require('assert')
+    const { createConsumerProducerEventObject } = require('event-wait')
+
+    /*
+        * produce() signals that a resource is available
+        * the first awaited consume() will receive the signal immediately and yield true (taking the resource)
+        * consume() will not be awaited if there are products available.
+        * if timeout (in milliseconds) is given to consume() as parameter, it will yield false if it didn't manage to take the product.
+    */
+
+    // produce 2 products (or pass 2 as argument to createConsumerProducerEventObject)
+    const factory = createConsumerProducerEventObject()
+    factory.produce()
+    factory.produce()
+    setTimeout(() => factory.produce(), 5000)
+    log('Start consuming')
+    assert(await factory.consume() === true)
+    log('1 - consume')
+    assert(await factory.consume() === true)
+    log('2 - and factory is empty. Will wait 5 seconds for it to produce.')
+    assert(await factory.consume() === true)
+    log('3 - now i will time-out in 3 seconds (returns false on timeout). Because factory will not produce anything')
+    assert(await factory.consume(3000) === false)
+    setTimeout(() => factory.produce(), 1000)
+    log('Factory will produce in 1 seconds (before given 3 seconds timeout)')
+    assert(await factory.consume(3000) === true)
+    log('done')
+}
+
+async function consumer_producer_example2() {
+    // More "real-world" example
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const { createConsumerProducerEventObject } = require('event-wait')
+
+    // create factory with 1 product already produced.
+    const factory = createConsumerProducerEventObject(1)
+    const consumers = 3
+    // spawn consumers
+    for (let i = 0; i < consumers; i++)
+        setTimeout(async () => {
+            while (true) {
+                log(`Consumer ${i} is waiting for resource.`)
+                await factory.consume()
+                log(`Consumer ${i} took the resource!`)
+            }
+        }, 0)
+
+    // while consume is awaited other tasks can run.
+    setInterval(() => { console.log('\n~consume is nonblocking! yaay~\n') }, 500)
+
+    // produce new product every two seconds.
+    setInterval(() => { log('produce!'); factory.produce() }, 2000)
+
+
+    // create consumer that tries to consume product for 5 seconds and resumes doing something else if it fails.
+    setTimeout(async () => {
+        let waitForMs = 500
+        while (true) {
+            log('Impatient Consumer gives factory some time to produce...')
+            if (await factory.consume(waitForMs)) {
+                log('\n!!Impatient Consumer got what he wanted!!')
+                break
+            } else {
+                waitForMs *= 2
+                log('Impatient Consumer did not get what he wanted and will continue to be impatient :)')
+            }
+        }
+    })
+}
+```
+
+

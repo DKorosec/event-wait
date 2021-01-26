@@ -1,0 +1,34 @@
+{
+    "name": "event-wait",
+    "version": "1.0.0",
+    "description": "",
+    "main": "built/index.js",
+    "types": "built/index.d.ts",
+    "keywords": [
+        "event",
+        "wait",
+        "consumer",
+        "producer"
+    ],
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:DKorosec/event-wait.git"
+    },
+    "scripts": {
+        "test": "echo \"Error: no test specified, yolo.\" && exit 1",
+        "lint": "node ./node_modules/eslint/bin/eslint \"src/**/*\"",
+        "build": "node ./node_modules/typescript/bin/tsc",
+        "watch": "node ./node_modules/typescript/bin/tsc -w",
+        "prepublish": "npm run lint && npm run build"
+    },
+    "author": "Dominik Korosec",
+    "license": "ISC",
+    "dependencies": {},
+    "devDependencies": {
+        "@types/node": "^14.0.13",
+        "@typescript-eslint/eslint-plugin": "^3.4.0",
+        "@typescript-eslint/parser": "^3.4.0",
+        "eslint": "7.3.1",
+        "typescript": "4.1.3"
+    }
+}
