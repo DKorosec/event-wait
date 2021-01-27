@@ -16,7 +16,7 @@ export function createWaitEventObject(): IWaitEventObject {
         // and unexpectedly close down node process for user.
         // https://github.com/nodejs/node/issues/22088
         const keepAliveEventLoop = setInterval(() => null, 86400 * 1e3);
-        f.once('done', (wasSet) => {
+        f.once('done', (wasSet: boolean) => {
             clearInterval(keepAliveEventLoop);
             r(wasSet);
         });
