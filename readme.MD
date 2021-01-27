@@ -18,9 +18,6 @@ The different events in event loop that are interested in a particular change of
     * If timeout is reached, the product (counter) will not be consumed (false will be returned).
 
 
-
-
-
 #
 There is no polling implemented for promises that wait for the set signal. The context goes into background and is awoken via internal EventEmitter that resolves its promise.
 
