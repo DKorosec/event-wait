@@ -7,16 +7,20 @@ This is one of the simplest mechanisms for communication between event loop exec
 
 * one context signals an event with `set()` and other events in event loop that `wait(ms_timeout?)` for it will be resolved immediately when their context is available.
     * If timeout is reached, the state of the event object will not be changed (false will be returned). Only `set()` releases the wait lock.
+    * Calling `set()` will release all a`wait()`ing objects. For a queue behavior, look at `createConsumerProducerEventObject` implementation.
+    * Calling `clear()` will reset the `set()` and `wait()` will await until `set()` is called again.
 
 > `createConsumerProducerEventObject(number of initial products)`:
 
 The typical programming style using condition variables uses the lock via promises to synchronize access to some shared state. 
 The different events in event loop that are interested in a particular change of state call `consume()` and wait until they see the desired state, while contexts that modify the state call `produce()`.
+For each `produce()` only one `consume()` will be released - where in  `createWaitEventObject` for one `set()`, all `wait()`s were released.
 
 * calling `consume(ms_timeout?)` will wait until there is a product produced (via `produce()`) OR timeout is reached (if specified). 
 
-    * If timeout is reached, the product (counter) will not be consumed (false will be returned).
+    * consumers are stored in a queue, so the first one to `consume()` will be the first one to release when `produce()` is called.
 
+    * If timeout is reached, the product (counter) will not be consumed (false will be returned). And the consumer will be removed from the queue. So the next time it'll call `consume()`, it will go to the back of the queue.
 
 #
 There is no polling implemented for promises that wait for the set signal. The context goes into background and is awoken via internal EventEmitter that resolves its promise.
@@ -117,7 +121,7 @@ async function consumer_producer_example2() {
     setInterval(() => { log('produce!'); factory.produce() }, 2000)
 
 
-    // create consumer that tries to consume product for 5 seconds and resumes doing something else if it fails.
+    // create consumer that tries to consume product for 500ms and if fails, it will retry with double of that time, and continue to do that until given enough time to get the resource
     setTimeout(async () => {
         let waitForMs = 500
         while (true) {
