@@ -5,11 +5,8 @@
 
 This is one of the simplest mechanisms for communication between event loop execution contexts: 
 
-* one context signals an event with `set()` and other events in event loop that `wait()` for it will be resolved immediately when their context is available.
-
-There is no polling implemented for promises that wait for the set signal, The context goes into background and is awoken via internal EventEmitter that resolves its promise.
-
-
+* one context signals an event with `set()` and other events in event loop that `wait(ms_timeout?)` for it will be resolved immediately when their context is available.
+    * If timeout is reached, the state of the event object will not be changed (false will be returned). Only `set()` releases the wait lock.
 
 > `createConsumerProducerEventObject(number of initial products)`:
 
@@ -18,9 +15,14 @@ The different events in event loop that are interested in a particular change of
 
 * calling `consume(ms_timeout?)` will wait until there is a product produced (via `produce()`) OR timeout is reached (if specified). 
 
-    * If timeout is reached, the product (counter) will not be consumed.
+    * If timeout is reached, the product (counter) will not be consumed (false will be returned).
 
 
+
+
+
+#
+There is no polling implemented for promises that wait for the set signal. The context goes into background and is awoken via internal EventEmitter that resolves its promise.
 
 ----
 
