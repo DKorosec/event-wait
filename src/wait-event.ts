@@ -1,6 +1,9 @@
 import { EventEmitter } from "events";
 import { breakableSleepMs } from "./utils";
 
+let producePromiseCounter = 0;
+let keepAliveEventLoopHandle: ReturnType<typeof setInterval>;
+
 export interface IWaitEventObject {
     wait(ms?: number): Promise<boolean>;
     isSet(): boolean;
@@ -12,12 +15,19 @@ export interface IWaitEventObject {
 export function createWaitEventObject(): IWaitEventObject {
     const f = new EventEmitter();
     const producePromise = (): Promise<boolean> => new Promise<boolean>(r => {
-        // if users doesn't have anything in event loop, this library could mis-behave 
-        // and unexpectedly close down node process for user.
-        // https://github.com/nodejs/node/issues/22088
-        const keepAliveEventLoop = setInterval(() => null, 86400 * 1e3);
+        // create interval when first promise is created.
+        if (producePromiseCounter++ === 0) {
+            // if users doesn't have anything in event loop, this library could mis-behave 
+            // and unexpectedly close down node process for user. (because our promise resolves on event and is not in event loop)
+            // https://github.com/nodejs/node/issues/22088
+            keepAliveEventLoopHandle = setInterval(() => null, 86400 * 1e3);
+        }
+
         f.once('done', (wasSet: boolean) => {
-            clearInterval(keepAliveEventLoop);
+            // clear interval when last promise is resolved.
+            if (--producePromiseCounter === 0) {
+                clearInterval(keepAliveEventLoopHandle);
+            }
             r(wasSet);
         });
     });
@@ -26,7 +36,9 @@ export function createWaitEventObject(): IWaitEventObject {
     let isSet = false;
 
     async function awaitDonePromise(): Promise<boolean> {
-        // hang promise if another context uses clear()
+        // hang promise if another context uses clear().
+        // It's the duty of those who set promise to false to extend it 
+        // and not causing to block - look at: this.clear()
         while (!await donePromise);
         return true;
     }
@@ -42,7 +54,8 @@ export function createWaitEventObject(): IWaitEventObject {
             }
             const sleep = breakableSleepMs(ms);
             const result = await Promise.race([awaitDonePromise(), sleep.promise.then(() => false)]);
-            // we don't need the sleep (timeout) in event loop anymore!
+            // we don't need the sleep (timeout) in event loop anymore! 
+            // otherwise if user code exits we would block the process unit the sleep is done
             sleep.cancel();
             return result;
         },
@@ -57,13 +70,16 @@ export function createWaitEventObject(): IWaitEventObject {
             isSet = false;
             // prevent hanging promise.
             f.emit('done', false);
-            // extend the current promise.
+            // always create new promise to not block in 'this.awaitDonePromise()'.
+            // we are just "extending" the current promise in time with resetting it.
+            // new promise is needed if current was already resolved (and with clear we want it to start as unresolved.)
             donePromise = producePromise();
         },
         _destroy(): void {
             isSet = false;
             // emit clear interval, we don't need to keep event loop anymore.
             f.emit('done', false);
+            // ensure immediate exit of 'this.awaitDonePromise()'
             donePromise = Promise.resolve(true);
         }
     };
