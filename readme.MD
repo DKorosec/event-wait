@@ -64,6 +64,52 @@ async function wait_event_example1() {
     log('done.')
 }
 
+async function wait_event_example2() {
+    // example unblock / block the waiting streamers
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const { createWaitEventObject } = require('event-wait')
+
+    const flag = createWaitEventObject()
+
+    const streamers = 5
+    for (let i = 0; i < streamers; i++) {
+        setTimeout(async () => {
+            log(`Streamer ${i} is waiting for wait() to be set()`)
+            await flag.wait()
+            log(`Streamer ${i} released!`)
+        })
+    }
+
+    log('Releasing streamers in 3 seconds')
+    setTimeout(() => flag.set(), 3000)
+}
+
+async function wait_event_example3() {
+    // example unblock / block the waiting streamers on repeat
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const { createWaitEventObject } = require('event-wait')
+
+    const flag = createWaitEventObject()
+
+    const streamers = 5
+    for (let i = 0; i < streamers; i++) {
+        setTimeout(async () => {
+            while (true) {
+                log(`Streamer ${i} is waiting for wait() to be set()`)
+                await flag.wait()
+                log(`Streamer ${i} released!`)
+            }
+        })
+    }
+
+    log('Releasing streamers every 3 seconds')
+    setInterval(() => {
+        // release and then immediately block them
+        flag.set()
+        flag.clear()
+    }, 3000)
+}
+
 async function consumer_producer_example1() {
     // Straight-forward example.
     const log = (txt) => console.log(txt, new Date().toISOString())
