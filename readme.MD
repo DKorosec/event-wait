@@ -182,6 +182,74 @@ async function consumer_producer_example2() {
         }
     })
 }
+
+function web_server_example() {
+    /*
+        Use-case example on webserver using express:  
+        1. Throttle requests only one (or more - change maxConcurrentRequests) request at a time and timeout if the queue is waiting too long.
+        2. After 10 visits on specific endpoint (/ root), immediate release waiting processes 
+           - currently they only change text, which is trivial - but suits as an example for some other background tasks waiting to be executed.
+    */
+
+    const express = require('express')
+    const {
+        createConsumerProducerEventObject,
+        createWaitEventObject
+    } = require('event-wait')
+
+    const app = express()
+    let visits = 0
+    const visitsT = 10
+    const flagVisitsEvent = createWaitEventObject()
+    const maxConcurrentRequests = 1
+    const throttler = createConsumerProducerEventObject(maxConcurrentRequests)
+    let txt = `This is a secret text for first ${visitsT} users.`
+
+    function limitRequests(reqHandlerFn) {
+        return async function (req, res, next) {
+            if (flagVisitsEvent.isSet()) {
+                await reqHandlerFn(req, res, next)
+                return
+            }
+
+            let timeout = false
+            try {
+                const timeoutMsMaxWait = 10000
+                if (!await throttler.consume(timeoutMsMaxWait)) {
+                    res.status(408).send('Server too busy.').end()
+                    timeout = true
+                    return
+                }
+                await reqHandlerFn(req, res, next)
+            } finally {
+                // release the resource if request was processed.
+                // if timeout happened the item was not consumed so we don't need to produce a new one.
+                if (!timeout) {
+                    throttler.produce()
+                }
+            }
+        }
+    }
+
+    app.get('/', limitRequests(async function (req, res) {
+        if (++visits > visitsT - 1) {
+            flagVisitsEvent.set()
+        }
+        // sleep - as to delay request to simulate a "heavy" endpoint.
+        await new Promise(r => setTimeout(r, 5000))
+        res.send(txt + ' ' + visits).end()
+    }))
+
+    for (let i = 0; i < 10; i++) {
+        setTimeout(async () => {
+            await flagVisitsEvent.wait()
+            txt = `[confidential]-${i}`
+            console.log('process', i, txt)
+        })
+    }
+
+    app.listen(3000)
+}
 ```
 
 
