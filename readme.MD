@@ -183,6 +183,31 @@ async function consumer_producer_example2() {
     })
 }
 
+async function wait_all_background_tasks() {
+    /*
+        Run multiple async background tasks, and wait for them to finish.
+    */
+    const log = (txt) => console.log(txt, new Date().toISOString())
+    const { createWaitEventObject } = require('event-wait')
+
+    const backgroundTasks = 10
+    const backgroundFlags = new Array(backgroundTasks).fill().map(() => createWaitEventObject())
+    const sleepMs = ms => new Promise(r => setTimeout(r, ms))
+
+    for (let i = 0; i < backgroundTasks; i++) {
+        setTimeout(async () => {
+            log('Running background task ' + i)
+            await sleepMs(Math.random() * 10e3)
+            log('Running background task ' + i + ' completed!')
+            backgroundFlags[i].set()
+        }, 0)
+    }
+
+    log('Waiting for all background tasks....')
+    await Promise.all(backgroundFlags.map(f => f.wait()))
+    log('All background tasks completed')
+}
+
 function web_server_example() {
     /*
         Use-case example on webserver using express:  

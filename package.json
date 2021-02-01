@@ -1,6 +1,6 @@
 {
     "name": "event-wait",
-    "version": "1.0.6",
+    "version": "1.0.7",
     "description": "simple zero dependency library that implements one of the simplest mechanisms for communication between event loop execution contexts (with signals and no polling)",
     "main": "built/index.js",
     "types": "built/index.d.ts",
