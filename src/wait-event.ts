@@ -3,6 +3,7 @@ import { breakableSleepMs } from "./utils";
 
 let producePromiseCounter = 0;
 let keepAliveEventLoopHandle: ReturnType<typeof setInterval>;
+let keepPromiseResolutionHaltExit = true;
 
 export interface IWaitEventObject {
     wait(ms?: number): Promise<boolean>;
@@ -12,11 +13,16 @@ export interface IWaitEventObject {
     _destroy(): void;
 }
 
+export function ignorePromiseResolutionHaltExit(): void {
+    keepPromiseResolutionHaltExit = false;
+    clearInterval(keepAliveEventLoopHandle);
+}
+
 export function createWaitEventObject(): IWaitEventObject {
     const f = new EventEmitter();
     const producePromise = (): Promise<boolean> => new Promise<boolean>(r => {
         // create interval when first promise is created.
-        if (producePromiseCounter++ === 0) {
+        if (producePromiseCounter++ === 0 && keepPromiseResolutionHaltExit) {
             // if users doesn't have anything in event loop, this library could mis-behave 
             // and unexpectedly close down node process for user. (because our promise resolves on event and is not in event loop)
             // https://github.com/nodejs/node/issues/22088
@@ -25,7 +31,7 @@ export function createWaitEventObject(): IWaitEventObject {
 
         f.once('done', (wasSet: boolean) => {
             // clear interval when last promise is resolved.
-            if (--producePromiseCounter === 0) {
+            if (--producePromiseCounter === 0 && keepPromiseResolutionHaltExit) {
                 clearInterval(keepAliveEventLoopHandle);
             }
             r(wasSet);

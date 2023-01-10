@@ -30,6 +30,17 @@ There is no polling implemented for promises that wait for the set signal. The c
 Documentation by example:
 
 ```javascript
+// if users doesn't have anything in event loop, this library keeps the process running and waiting for events.
+// otherwise it could unexpectedly close down node process for user. (because our promise resolves on event and is not in event loop)
+// https://github.com/nodejs/node/issues/22088
+
+// if you don't want that behaviour call this function before using library objects and program will exit when there are no more promises in nodejs queue.
+const { ignorePromiseResolutionHaltExit  } = require('event-wait')
+ignorePromiseResolutionHaltExit();
+```
+
+
+```javascript
 async function wait_event_example1() {
     // Straight-forward example.
     const log = (txt) => console.log(txt, new Date().toISOString())
